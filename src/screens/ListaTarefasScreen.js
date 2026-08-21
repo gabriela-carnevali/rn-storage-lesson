@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -11,7 +12,71 @@ import {
 } from "react-native";
 import TarefaItem from "../components/TarefaItem";
 
+const CHAVE_STORAGE = "@rn-storage-lessons:tarefa";
+
 export default function ListaTarefasScreen() {
+  const [tarefas, setTarefas] = useState([]);
+  const [textoInput, setTextoInput] = useState("");
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    async function carregarTarefas() {
+      try {
+        const tarefasSalvas = await AsyncStorage.getItem(CHAVE_STORAGE);
+        if (tarefasSalvas !== null) {
+          setTarefas(JSON.parse(tarefasSalvas));
+        }
+      } catch (erro) {
+        console.error("Erro ao carregar tarefas do storage", erro);
+      } finally {
+        setCarregando(false);
+      }
+    }
+    carregarTarefas();
+  }, []);
+
+  useEffect(() => {
+    if (carregando) return;
+    AsyncStorage.setItem(CHAVE_STORAGE, JSON.stringify(tarefas)).catch(
+      (erro) => {
+        console.error("Erro ao salvar tarefas no storage", erro);
+      },
+    );
+  }, [tarefas, carregando]);
+
+  function AdicionarTarefa() {
+    const texto = textoInput.trim();
+    if (texto === "") return;
+
+    const novaTarefa = {
+      id: Date.now().toString(),
+      texto,
+      concluida: false,
+    };
+
+    setTarefas((tarefasAtuais) => [...tarefasAtuais, novaTarefa]);
+    setTextoInput("");
+  }
+
+  function AlternarConcluida(id) {
+    setTarefas((tarefasAtuais) =>
+      tarefasAtuais.map((tarefa) =>
+        tarefa.id === id ? { ...tarefa, concluida: !tarefa.concluida } : tarefa,
+      ),
+    );
+  }
+
+  function ExcluirTarefa(id) {
+    setTarefas((tarefasAtuais) =>
+      tarefasAtuais.filter((tarefa) => tarefa.id !== id),
+    );
+  }
+
+    function ExcluirTodasTarefas() {
+    setTarefas((tarefasAtuais) =>
+      tarefasAtuais = [])
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -25,12 +90,12 @@ export default function ListaTarefasScreen() {
           placeholder="Digite uma nova tarefa..."
           value={textoInput}
           onChangeText={setTextoInput}
-          onSubmitEditing={}
+          onSubmitEditing={AdicionarTarefa}
           returnKeyType="done"
         />
         <TouchableOpacity
           style={styles.botaoAdicionar}
-          onPress={}
+          onPress={AdicionarTarefa}
         >
           <Text style={styles.textoBotaoAdicionar}>Adicionar</Text>
         </TouchableOpacity>
@@ -42,8 +107,8 @@ export default function ListaTarefasScreen() {
         renderItem={({ item }) => (
           <TarefaItem
             tarefa={item}
-            aoAlternarConcluida={}
-            aoExcluir={}
+            aoAlternarConcluida={AlternarConcluida}
+            aoExcluir={ExcluirTarefa}
           />
         )}
         ListEmptyComponent={
@@ -53,6 +118,14 @@ export default function ListaTarefasScreen() {
         }
         contentContainerStyle={styles.listaConteudo}
       />
+      <TouchableOpacity
+        style={styles.botaoExcluirTudo}
+        onPress={ExcluirTodasTarefas}
+      >
+        <Text style={styles.textoBotaoExcluirTudo}>
+          Excluir Todos os Elemetos da Lista
+        </Text>
+      </TouchableOpacity>
     </KeyboardAvoidingView>
   );
 }
@@ -101,5 +174,16 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "#888",
     marginTop: 24,
+  },
+  botaoExcluirTudo: {
+    borderRadius: 8,
+    paddingVertical: 8,
+    backgroundColor: "#e41717f7",
+    paddingHorizontal: 80,
+    justifyContent: "center",
+  },
+  textoBotaoExcluirTudo: {
+    color: "#fff",
+    fontWeight: "bold",
   },
 });
